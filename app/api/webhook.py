@@ -1,3 +1,5 @@
+from datetime import datetime, timezone, timedelta
+
 from fastapi import Request, BackgroundTasks
 from fastapi.params import Depends
 from fastapi.routing import APIRouter
@@ -19,6 +21,7 @@ async def evolution_webhook(
 ):
 	"""Endpoint to receive webhook events from Evolution API."""
 	raw = await request.json()
+	logger.info(f"📥 Webhook bruto recebido: {raw}")
 
 	if raw.get("event") != "messages.upsert":
 		return {"message": "ignored"}
@@ -36,6 +39,12 @@ async def evolution_webhook(
 	document = message.get("documentMessage")
 	if not document:
 		return {"message": "ignored: not document"}
+
+	msg_ts = data.messageTimestamp
+	msg_time = datetime.fromtimestamp(int(msg_ts), tz=timezone.utc)
+	now = datetime.now(timezone.utc)
+	if now - msg_time > timedelta(minutes=2):
+		return {"message": "Mensagem muito antiga ignorada"}
 
 	mimetype = document.get("mimetype")
 	file_name = document.get("fileName") or document.get("title") or ""
